@@ -25,16 +25,10 @@ def config(config_source: str, config_file: str) -> dict[str, dict[str, str]] | 
         return json.load(f)
 
 
-@pytest.fixture
-def _conf(config):
-    """
-    Use this if the config fixture needs to be run without using it in the test function
-    """
-
-
 def test_happy_path(config: dict[str, dict[str, str]]):
-    assert "example_one" in config
-    assert "example_two" in config
+    assert "one" in config
+    assert "two" in config
+    assert 2 == len(config)
 
 
 def test_populate_ignore_no_survey_props(config: dict[str, dict[str, str]]):
@@ -42,7 +36,6 @@ def test_populate_ignore_no_survey_props(config: dict[str, dict[str, str]]):
 
 
 def test_populate_ignore_without_credential_file(config: dict[str, dict[str, str]]):
-    print(config)
     assert "no_credential" not in config
 
 
@@ -53,9 +46,9 @@ def test_populate_ignore_without_app_id(config: dict[str, dict[str, str]]):
 
 def test_get_config(config_file: str, config):
     example: dict[str, str] = cast(
-        dict[str, str], get_config("example_one", config_file=config_file)
+        dict[str, str], get_config("one", config_file=config_file)
     )
-    assert example == config["example_one"]
+    assert example == config["one"]
 
 
 @pytest.mark.internal
