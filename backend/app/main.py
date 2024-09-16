@@ -16,7 +16,7 @@ app = FastAPI()
 def validate_form_id(form_id: str) -> None:
     # TODO: form id validation
     if not form_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)  # pragma: no cover
 
 
 def get_config_for(instance: str) -> dict[str, str]:
@@ -115,7 +115,6 @@ async def get_image(
 
     try:
         res = bucket.download(f"images/{filename}")
-        print(type(res))
         return StreamingResponse(
             content=res["Body"].iter_chunks(), media_type=res["ContentType"]
         )
