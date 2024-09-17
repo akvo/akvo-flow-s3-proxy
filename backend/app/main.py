@@ -1,22 +1,27 @@
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from functools import partial
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Path, UploadFile, status
 from starlette.responses import StreamingResponse
 
-from app.dependencies import bucket_factory
-from app.flow_config import get_config
+from app.dependencies import provide_make_bucket, provide_make_form_validator
+from app.flow_config import (
+    get_config,
+)
+from app.form_validator import FormValidator
 from app.messages import ResultMessage
 from app.s3 import S3Bucket
 
 FormIdParam = Annotated[str, Path(pattern=r"^\d+$")]
+VersionedFormIdParam = Annotated[str, Path(pattern=r"^\d+(v\d+.0)?$")]
 app = FastAPI()
 
 
-def validate_form_id(form_id: str) -> None:
-    # TODO: form id validation
-    if not form_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)  # pragma: no cover
+def validate_form_id(form_id: int, validator: FormValidator) -> None:
+    form_exists = validator.validate(form_id)
+    if not form_id or not form_exists:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
 
 def get_config_for(instance: str) -> dict[str, str]:
@@ -32,15 +37,13 @@ async def upload(
     form_id: str,
     file: UploadFile,
     folder: str,
-    make_bucket: Callable[[str, str, str], S3Bucket],
+    make_bucket: Callable[[dict[str, str]], S3Bucket],
+    make_form_validator: Callable[[dict[str, str]], FormValidator],
 ) -> ResultMessage:
     config = get_config_for(instance)
-    validate_form_id(form_id)
-    bucket = make_bucket(
-        str(config.get("awsBucket")),
-        str(config.get("awsAccessKeyId")),
-        str(config.get("awsSecretKey")),
-    )
+    form_validator = make_form_validator(config)
+    validate_form_id(int(form_id), form_validator)
+    bucket = make_bucket(config)
     extra_args = {"ContentType": file.content_type}
     if folder == "images":
         extra_args["ACL"] = "public-read"
@@ -49,16 +52,30 @@ async def upload(
     return ResultMessage.success("OK!")
 
 
+def provide_upload(
+    make_bucket: Annotated[
+        Callable[[dict[str, str]], S3Bucket], Depends(provide_make_bucket)
+    ],
+    make_form_validator: Annotated[
+        Callable[[dict[str, str]], FormValidator], Depends(provide_make_form_validator)
+    ],
+) -> Callable[[str, str, UploadFile, str], Awaitable[ResultMessage]]:
+    return partial(
+        upload, make_bucket=make_bucket, make_form_validator=make_form_validator
+    )
+
+
 @app.put("/{instance}/devicezip/{form_id}/", status_code=status.HTTP_201_CREATED)
 async def put_devicezip(
     instance: str,
     form_id: FormIdParam,
     file: UploadFile,
-    make_bucket: Annotated[
-        Callable[[str, str, str], S3Bucket], Depends(bucket_factory)
+    upload: Annotated[
+        Callable[[str, str, UploadFile, str], Awaitable[ResultMessage]],
+        Depends(provide_upload),
     ],
 ) -> ResultMessage:
-    return await upload(instance, form_id, file, "devicezip", make_bucket)
+    return await upload(instance, form_id, file, "devicezip")
 
 
 @app.put("/{instance}/images/{form_id}/", status_code=status.HTTP_201_CREATED)
@@ -66,31 +83,33 @@ async def put_images(
     instance: str,
     form_id: FormIdParam,
     file: UploadFile,
-    make_bucket: Annotated[
-        Callable[[str, str, str], S3Bucket], Depends(bucket_factory)
+    upload: Annotated[
+        Callable[[str, str, UploadFile, str], Awaitable[ResultMessage]],
+        Depends(provide_upload),
     ],
 ) -> ResultMessage:
-    return await upload(instance, form_id, file, "images", make_bucket)
+    return await upload(instance, form_id, file, "images")
 
 
-@app.get("/{instance}/surveys/{form_id}.zip")
+@app.get("/{instance}/surveys/{versioned_form_id}.zip")
 async def get_survey_form(
     instance: str,
-    form_id: FormIdParam,
+    versioned_form_id: VersionedFormIdParam,
     make_bucket: Annotated[
-        Callable[[str, str, str], S3Bucket], Depends(bucket_factory)
+        Callable[[dict[str, str]], S3Bucket], Depends(provide_make_bucket)
+    ],
+    make_form_validator: Annotated[
+        Callable[[dict[str, str]], FormValidator], Depends(provide_make_form_validator)
     ],
 ) -> StreamingResponse:
     config = get_config_for(instance)
-    validate_form_id(form_id)
-    bucket = make_bucket(
-        str(config.get("awsBucket")),
-        str(config.get("awsAccessKeyId")),
-        str(config.get("awsSecretKey")),
-    )
+    form_id = versioned_form_id.split("v")[0]
+    form_validator = make_form_validator(config)
+    validate_form_id(int(form_id), form_validator)
+    bucket = make_bucket(config)
 
     try:
-        res = bucket.download(f"surveys/{form_id}.zip")
+        res = bucket.download(f"surveys/{versioned_form_id}.zip")
         return StreamingResponse(
             content=res["Body"].iter_chunks(), media_type=res["ContentType"]
         )
@@ -103,15 +122,11 @@ async def get_image(
     instance: str,
     filename: str,
     make_bucket: Annotated[
-        Callable[[str, str, str], S3Bucket], Depends(bucket_factory)
+        Callable[[dict[str, str]], S3Bucket], Depends(provide_make_bucket)
     ],
 ) -> StreamingResponse:
     config = get_config_for(instance)
-    bucket = make_bucket(
-        str(config.get("awsBucket")),
-        str(config.get("awsAccessKeyId")),
-        str(config.get("awsSecretKey")),
-    )
+    bucket = make_bucket(config)
 
     try:
         res = bucket.download(f"images/{filename}")
