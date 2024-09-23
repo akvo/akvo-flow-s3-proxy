@@ -35,6 +35,7 @@ def get_config_for(instance: str) -> dict[str, str]:
 async def upload(
     instance: str,
     form_id: str,
+    filename: str,
     file: UploadFile,
     folder: str,
     make_bucket: Callable[[dict[str, str]], S3Bucket],
@@ -47,7 +48,7 @@ async def upload(
     extra_args = {"ContentType": file.content_type}
     if folder == "images":
         extra_args["ACL"] = "public-read"
-    file_key = f"{folder}/{str(file.filename)}"
+    file_key = f"{folder}/{str(filename)}"
     bucket.upload(file.file, file_key, extra_args)
     return ResultMessage.success("OK!")
 
@@ -59,36 +60,40 @@ def provide_upload(
     make_form_validator: Annotated[
         Callable[[dict[str, str]], FormValidator], Depends(provide_make_form_validator)
     ],
-) -> Callable[[str, str, UploadFile, str], Awaitable[ResultMessage]]:
+) -> Callable[[str, str, str, UploadFile, str], Awaitable[ResultMessage]]:
     return partial(
         upload, make_bucket=make_bucket, make_form_validator=make_form_validator
     )
 
 
-@app.put("/{instance}/devicezip/{form_id}/", status_code=status.HTTP_201_CREATED)
+@app.put(
+    "/{instance}/devicezip/{form_id}/{filename}", status_code=status.HTTP_201_CREATED
+)
 async def put_devicezip(
     instance: str,
     form_id: FormIdParam,
+    filename: str,
     file: UploadFile,
     upload: Annotated[
-        Callable[[str, str, UploadFile, str], Awaitable[ResultMessage]],
+        Callable[[str, str, str, UploadFile, str], Awaitable[ResultMessage]],
         Depends(provide_upload),
     ],
 ) -> ResultMessage:
-    return await upload(instance, form_id, file, "devicezip")
+    return await upload(instance, form_id, filename, file, "devicezip")
 
 
-@app.put("/{instance}/images/{form_id}/", status_code=status.HTTP_201_CREATED)
+@app.put("/{instance}/images/{form_id}/{filename}", status_code=status.HTTP_201_CREATED)
 async def put_images(
     instance: str,
     form_id: FormIdParam,
+    filename: str,
     file: UploadFile,
     upload: Annotated[
-        Callable[[str, str, UploadFile, str], Awaitable[ResultMessage]],
+        Callable[[str, str, str, UploadFile, str], Awaitable[ResultMessage]],
         Depends(provide_upload),
     ],
 ) -> ResultMessage:
-    return await upload(instance, form_id, file, "images")
+    return await upload(instance, form_id, filename, file, "images")
 
 
 @app.get("/{instance}/surveys/{versioned_form_id}.zip")
