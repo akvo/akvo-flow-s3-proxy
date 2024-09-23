@@ -44,7 +44,7 @@ def test_put_devicezip_should_call_bucket_upload(fake_bucket, fake_validator):
     with patch("app.main.get_config", return_value=fake_config):
         fake_validator.validate.return_value = True
         client.put(
-            "/instance1/devicezip/123/",
+            f"/instance1/devicezip/123/{file_name}",
             files={"file": (file_name, file_content, file_content_type)},
         )
 
@@ -59,7 +59,7 @@ def test_put_devicezip_with_invalid_instance_returns_404(fake_bucket):
     fake_config = {}
     with patch("app.main.get_config", return_value=fake_config):
         response = client.put(
-            "/instance1/devicezip/123/",
+            "/instance1/devicezip/123/test.txt",
             files={"file": io.BytesIO(b"<file content>")},
         )
 
@@ -75,7 +75,7 @@ def test_put_images_should_call_bucket_upload(fake_bucket, fake_validator):
     with patch("app.main.get_config", return_value=fake_config):
         fake_validator.validate.return_value = True
         client.put(
-            "/instance1/images/123/",
+            f"/instance1/images/123/{file_name}",
             files={"file": (file_name, file_content, file_content_type)},
         )
 
@@ -90,7 +90,7 @@ def test_put_images_with_invalid_instance_returns_404(fake_bucket):
     fake_config = {}
     with patch("app.main.get_config", return_value=fake_config):
         response = client.put(
-            "/instance1/images/123/",
+            "/instance1/images/123/test.jpg",
             files={"file": io.BytesIO(b"<file content>")},
         )
 
