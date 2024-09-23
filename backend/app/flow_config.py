@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import tempfile
 from glob import glob
 from xml.etree import ElementTree
@@ -15,6 +16,10 @@ AWS_ACCESS_ID = "awsAccessKeyId"
 AWS_SECRET = "awsSecretKey"
 GCP_CREDENTIAL = "gcpCredentialFile"
 
+instanceUrlPattern = re.compile(
+    r"^(https?://)?(?P<alias>.+)+\.(akvoflow\.org|appspot\.com)$"
+)
+
 
 def populate(*, source: str = SOURCE_PATH, destination: str = CONFIG_FILE) -> None:
     files = glob(f"{source}/*/survey.properties")
@@ -25,11 +30,17 @@ def populate(*, source: str = SOURCE_PATH, destination: str = CONFIG_FILE) -> No
         app_id = _get_app_id(path)
         if not app_id:
             continue
+        matches = instanceUrlPattern.match(props.get("instanceUrl", ""))
+        if not matches:
+            continue
+        alias = matches.group("alias").strip()
+        if not alias:
+            continue
         gcp_credential_file = glob(f"{path}/{app_id}*.json")
         if not gcp_credential_file:
             continue
         props[GCP_CREDENTIAL] = gcp_credential_file[0]
-        configs[app_id] = props
+        configs[alias] = props
     with open(destination, "w") as out:
         json.dump(configs, out)
 
@@ -46,9 +57,7 @@ def get_config(
 
 def refresh(*, source: str = SOURCE_PATH, destination: str = CONFIG_FILE) -> None:
     repo = Git(source)
-    print(repo)
     repo.pull(rebase=True)
-    print(repo.pull.__dict__)
     populate(source=source, destination=destination)
 
 
@@ -65,7 +74,11 @@ def _get_app_id(source_path: str) -> str | None:
     if not isinstance(xml_root, ElementTree.Element):
         return None
     app_element = xml_root.find("{http://appengine.google.com/ns/1.0}application")
-    return app_element.text if isinstance(app_element, ElementTree.Element) else ""
+    return (
+        str(app_element.text).strip()
+        if isinstance(app_element, ElementTree.Element)
+        else None
+    )
 
 
 def _get_xml_root(filename: str) -> ElementTree.Element | None:
