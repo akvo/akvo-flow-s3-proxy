@@ -1,14 +1,14 @@
-name: Deploy to Test Cluster
+name: Deploy to Prod Cluster
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types: [published]
 
 jobs:
   build-push:
     name: Build and Push to Registry
     runs-on: ubuntu-latest
+    environment: Production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,12 +36,13 @@ jobs:
           app-name: "akvo-flow-s3-proxy"
           service-name: "backend"
           gcloud-sa:  ${{ secrets.GCLOUD_SERVICE_ACCOUNT_REGISTRY }}
-          cluster-name: "test"
+          cluster-name: "production"
 
   rollout:
     name: Rollout to the server
     needs: build-push
     runs-on: ubuntu-latest
+    environment: Production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,6 +63,6 @@ jobs:
           app-name: "akvo-flow-s3-proxy"
           deployment-name: "backend-deployment"
           container-name: "backend"
-          cluster-name: "test"
+          cluster-name: "production"
           namespace-name: "akvo-flow-s3-proxy-namespace"
           gcloud-sa:  ${{ secrets.GCLOUD_SERVICE_ACCOUNT_K8S }}
