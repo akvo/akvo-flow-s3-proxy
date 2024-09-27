@@ -29,6 +29,7 @@ jobs:
           app-name: "akvo-flow-s3-proxy"
           service-name: "backend"
           dockerfile-location: "backend/Dockerfile"
+          cluster-name: "production"
 
       - name: Docker Push Backend
         uses: ./composite-actions/.github/actions/docker-push
