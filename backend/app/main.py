@@ -146,6 +146,12 @@ async def refresh_config() -> ResultMessage:
     return ResultMessage.success("OK!")
 
 
+@app.post("/refresh", include_in_schema=False)
+async def post_refresh_config() -> ResultMessage:
+    refresh()
+    return ResultMessage.success("OK!")
+
+
 @app.get("/healtz", include_in_schema=False)
 async def healt_check() -> ResultMessage:
     return ResultMessage.success("OK!")
