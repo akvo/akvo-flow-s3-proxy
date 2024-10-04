@@ -154,3 +154,11 @@ def test_get_image_with_invalid_instance_returns_404(fake_bucket):
 
         assert response.status_code == 404
         fake_bucket.download.assert_not_called()
+
+
+def test_refresh():
+    with patch("app.main.refresh") as mocked_refresh:
+        response = client.get("/refresh")
+
+        assert response.status_code == 200
+        mocked_refresh.assert_called_once()

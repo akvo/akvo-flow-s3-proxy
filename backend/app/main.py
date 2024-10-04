@@ -6,9 +6,7 @@ from fastapi import Depends, FastAPI, HTTPException, Path, UploadFile, status
 from starlette.responses import StreamingResponse
 
 from app.dependencies import provide_make_bucket, provide_make_form_validator
-from app.flow_config import (
-    get_config,
-)
+from app.flow_config import get_config, refresh
 from app.form_validator import FormValidator
 from app.messages import ResultMessage
 from app.s3 import S3Bucket
@@ -140,6 +138,12 @@ async def get_image(
         )
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from e
+
+
+@app.get("/refresh", include_in_schema=False)
+async def refresh_config() -> ResultMessage:
+    refresh()
+    return ResultMessage.success("OK!")
 
 
 @app.get("/healtz", include_in_schema=False)
