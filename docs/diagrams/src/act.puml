@@ -1,0 +1,21 @@
+@startuml
+start
+
+:Get instance config;
+
+if (config exists?) then (no)
+  :Error;
+  stop
+endif
+
+:Validate Form ID;
+
+if (Form ID valid?) then (no)
+  :Error;
+  stop
+endif
+
+:Get/Upload to S3 bucket;
+
+stop
+@enduml

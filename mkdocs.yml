@@ -1,0 +1,11 @@
+site_name: Akvo Flow S3 Proxy
+
+plugins:
+  - mermaid2
+  - build_plantuml:
+      render: 'server' # or "local" for local rendering
+      server: 'http://www.plantuml.com/plantuml' # official plantuml server
+      output_format: 'svg' # or "png"
+      diagram_root: 'docs/diagrams' # should reside under docs_dir
+      output_folder: 'out'
+      input_folder: 'src'
