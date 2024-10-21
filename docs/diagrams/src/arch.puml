@@ -1,0 +1,22 @@
+@startuml
+
+actor apk as "Mobile app (1)"
+
+rectangle k8s as "Proxy server" {
+  node proxy as "Proxy service (2)"
+  file config as "Flow configs (3)"
+}
+
+rectangle gae as "Flow instance GAE" {
+  database datastore as "Datastore (4)"
+}
+
+rectangle s3 as "AWS S3" {
+  folder bucket as "Bucket (5)"
+}
+
+apk <--> proxy : "Get/Upload File"
+proxy --> datastore: "Validate Form ID"
+proxy --> config: Read
+proxy <--> bucket: "Get/Upload File"
+@enduml
