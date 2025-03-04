@@ -1,3 +1,4 @@
+import re
 from collections.abc import Awaitable, Callable
 from functools import partial
 from typing import Annotated
@@ -12,7 +13,6 @@ from app.messages import ResultMessage
 from app.s3 import S3Bucket
 
 FormIdParam = Annotated[str, Path(pattern=r"^\d+$")]
-VersionedFormIdParam = Annotated[str, Path(pattern=r"^\d+(v\d+.0)?$")]
 app = FastAPI()
 
 
@@ -94,10 +94,10 @@ async def put_images(
     return await upload(instance, form_id, filename, file, "images")
 
 
-@app.get("/{instance}/surveys/{versioned_form_id}.zip")
-async def get_survey_form(
+@app.get("/{instance}/surveys/{resource}.zip")
+async def get_cascade_resource(
     instance: str,
-    versioned_form_id: VersionedFormIdParam,
+    resource: str,
     make_bucket: Annotated[
         Callable[[dict[str, str]], S3Bucket], Depends(provide_make_bucket)
     ],
@@ -106,13 +106,15 @@ async def get_survey_form(
     ],
 ) -> StreamingResponse:
     config = get_config_for(instance)
-    form_id = versioned_form_id.split("v")[0]
-    form_validator = make_form_validator(config)
-    validate_form_id(int(form_id), form_validator)
+    if re.match(r"^\d+(v\d+.0)?$", resource):
+        form_id = resource.split("v")[0]
+        form_validator = make_form_validator(config)
+        validate_form_id(int(form_id), form_validator)
+    elif not re.match(r"^cascade-\d+-v\d+\.sqlite$", resource):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     bucket = make_bucket(config)
-
     try:
-        res = bucket.download(f"surveys/{versioned_form_id}.zip")
+        res = bucket.download(f"surveys/{resource}.zip")
         return StreamingResponse(
             content=res["Body"].iter_chunks(), media_type=res["ContentType"]
         )
