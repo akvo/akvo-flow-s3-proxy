@@ -140,6 +140,22 @@ def test_get_survey_form_with_invalid_form_id_returns_404(fake_bucket, fake_vali
         fake_bucket.download.assert_not_called()
 
 
+def test_get_survey_with_cascade_resource_should_call_bucket_download(fake_bucket):
+    fake_config = {"content": "not important"}
+    with patch("app.main.get_config", return_value=fake_config):
+        client.get("/instance1/surveys/cascade-1234-v1.sqlite.zip")
+        fake_bucket.download.assert_called_with("surveys/cascade-1234-v1.sqlite.zip")
+
+
+def test_get_survey_with_invalid_pattern_returns_404(fake_bucket):
+    fake_config = {"content": "not important"}
+    with patch("app.main.get_config", return_value=fake_config):
+        response = client.get("/instance1/surveys/cascade-xxx-v1.sqlite.zip")
+
+        assert response.status_code == 404
+        fake_bucket.download.assert_not_called()
+
+
 def test_get_image_should_call_bucket_download(fake_bucket):
     fake_config = {"content": "not important"}
     with patch("app.main.get_config", return_value=fake_config):
