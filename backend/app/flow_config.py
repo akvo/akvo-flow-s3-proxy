@@ -5,7 +5,6 @@ import os
 import re
 import tempfile
 from glob import glob
-from xml.etree import ElementTree
 
 from git.cmd import Git
 
@@ -28,8 +27,6 @@ def populate(*, source: str = SOURCE_PATH, destination: str = CONFIG_FILE) -> No
         props = _parse_survey_props(f)
         path = os.path.dirname(f)
         app_id = _get_app_id(path)
-        if not app_id:
-            continue
         matches = instanceUrlPattern.match(props.get("instanceUrl", ""))
         if not matches:
             continue
@@ -69,22 +66,13 @@ def _parse_survey_props(filename: str) -> dict[str, str]:
         )
 
 
-def _get_app_id(source_path: str) -> str | None:
-    xml_root = _get_xml_root(f"{source_path}/appengine-web.xml")
-    if not isinstance(xml_root, ElementTree.Element):
-        return None
-    app_element = xml_root.find("{http://appengine.google.com/ns/1.0}application")
-    return (
-        str(app_element.text).strip()
-        if isinstance(app_element, ElementTree.Element)
-        else None
-    )
-
-
-def _get_xml_root(filename: str) -> ElementTree.Element | None:
-    with open(filename) as f:
-        try:
-            tree = ElementTree.parse(f)
-            return tree.getroot()
-        except ElementTree.ParseError:
-            return None
+def _get_app_id(source_path: str) -> str:
+    # The instance id used to come from <application> in appengine-web.xml.
+    # Second-generation App Engine forbids that element -- the id comes from the
+    # deploy command instead -- so every descriptor in akvo-flow-server-config had
+    # it stripped, and reading it here returned nothing for all 110 instances: each
+    # one was skipped, and every mobile app got a 404 for form downloads and data
+    # uploads. The directory holding the descriptor is the id, which is what
+    # akvo.commons falls back to as well, and a directory cannot go missing or
+    # drift from itself the way an element can.
+    return os.path.basename(source_path)
