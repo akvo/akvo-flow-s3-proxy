@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.flow_config import get_config, populate, refresh
+from app.flow_config import GCP_CREDENTIAL, get_config, populate, refresh
 
 
 @pytest.fixture
@@ -39,9 +39,18 @@ def test_populate_ignore_without_credential_file(config: dict[str, dict[str, str
     assert "no_credential" not in config
 
 
-def test_populate_ignore_without_app_id(config: dict[str, dict[str, str]]):
-    assert "no_app_id" not in config
+def test_populate_ignore_empty_alias(config: dict[str, dict[str, str]]):
     assert "" not in config
+
+
+def test_populate_identifies_instance_by_directory_name(
+    config: dict[str, dict[str, str]],
+):
+    # Second-generation App Engine forbids <application>, so a descriptor has nothing
+    # to identify its instance with. Dropping those instances took every mobile app
+    # offline once already; the directory name is the id, and it cannot go missing.
+    assert "one" in config
+    assert config["one"][GCP_CREDENTIAL].endswith("example-1/example-1_abc123.json")
 
 
 def test_get_config(config_file: str, config):
